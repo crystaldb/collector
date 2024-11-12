@@ -18,6 +18,8 @@ var newMetricClientFunc = monitoring.NewMetricClient
 
 // GetSystemState - Gets system information about a Google Cloud SQL instance
 func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logger) (system state.SystemState) {
+	logger.PrintInfo("CloudSQL/System: Called GetSystemState")
+
 	config := server.Config
 	system.Info.Type = state.GoogleCloudSQLSystem
 
