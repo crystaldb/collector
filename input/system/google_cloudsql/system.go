@@ -90,6 +90,11 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 	}
 	logger.PrintInfo("CloudSQL/System: CPU utilization: %.2f%%", cpuUtil)
 
+	system.Disks = make(state.DiskMap)
+	system.Disks["default"] = state.Disk{
+		DiskType: "N/A",
+	}
+
 	// Disk stats
 	logger.PrintInfo("CloudSQL/System: Starting disk metrics collection")
 	system.DiskStats = make(state.DiskStatsMap)
