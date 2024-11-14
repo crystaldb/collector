@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pganalyze/collector/input/system/azure"
+	"github.com/pganalyze/collector/input/system/google_cloudsql"
 	"github.com/pganalyze/collector/input/system/tembo"
 
 	"github.com/pganalyze/collector/input/postgres"
@@ -41,7 +42,7 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 		system = rds.GetSystemState(server, logger)
 	} else if config.SystemType == "google_cloudsql" {
 		system.Info.Type = state.GoogleCloudSQLSystem
-		server.SelfTest.MarkCollectionAspectNotAvailable(state.CollectionAspectSystemStats, "not available on this platform")
+		system = google_cloudsql.GetSystemState(ctx, server, logger)
 	} else if config.SystemType == "azure_database" {
 		system = azure.GetSystemState(ctx, server, logger)
 	} else if config.SystemType == "heroku" {

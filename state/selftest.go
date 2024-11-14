@@ -173,6 +173,22 @@ func (s *SelfTestResult) GetCollectionAspectStatus(aspect CollectionAspect) *Col
 	return s.AspectStatuses[aspect]
 }
 
+func (s *SelfTestResult) IsCollectionAspectOk(aspect CollectionAspect) bool {
+	if s == nil {
+		return false
+	}
+	status := s.GetCollectionAspectStatus(aspect)
+	return status != nil && status.State == CollectionStateOkay
+}
+
+func (s *SelfTestResult) IsCollectionAspectError(aspect CollectionAspect) bool {
+	if s == nil {
+		return false
+	}
+	status := s.GetCollectionAspectStatus(aspect)
+	return status != nil && status.State == CollectionStateError
+}
+
 func (s *SelfTestResult) MarkMonitoredDb(dbName string) {
 	if s == nil {
 		return
