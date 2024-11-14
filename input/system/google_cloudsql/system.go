@@ -3,7 +3,6 @@ package google_cloudsql
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -59,17 +58,17 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 	}
 
 	// Memory stats
-	system.Memory.TotalBytes = uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/memory/quota"))
+	system.Memory.TotalBytes = uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/memory/quota", logger))
 
-	usedMemory := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/memory/usage"))
+	usedMemory := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/memory/usage", logger))
 
 	system.Memory.FreeBytes = system.Memory.TotalBytes - usedMemory
 
-	system.Memory.SwapUsedBytes = uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/swap/bytes_used"))
+	system.Memory.SwapUsedBytes = uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/swap/bytes_used", logger))
 
 	// CPU Stats
 	system.CPUStats = make(state.CPUStatisticMap)
-	cpuUtil := getPercentMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/cpu/utilization")
+	cpuUtil := getPercentMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/cpu/utilization", logger)
 	system.CPUStats["all"] = state.CPUStatistic{
 		DiffedOnInput: true,
 		DiffedValues: &state.DiffedSystemCPUStats{
@@ -84,9 +83,9 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 
 	// Disk stats
 	system.DiskStats = make(state.DiskStatsMap)
-	readOps := float64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/read_ops_count"))
-	writeOps := float64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/write_ops_count"))
-	diskUtil := float64(getPercentMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/utilization"))
+	readOps := float64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/read_ops_count", logger))
+	writeOps := float64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/write_ops_count", logger))
+	diskUtil := float64(getPercentMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/utilization", logger))
 
 	system.DiskStats["default"] = state.DiskStats{
 		DiffedOnInput: true,
@@ -99,8 +98,8 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 
 	// Disk partitions
 	system.DiskPartitions = make(state.DiskPartitionMap)
-	usedBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/bytes_used"))
-	totalBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/quota"))
+	usedBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/bytes_used", logger))
+	totalBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/disk/quota", logger))
 
 	system.DiskPartitions["/"] = state.DiskPartition{
 		DiskName:      "cloudsql",
@@ -111,8 +110,8 @@ func GetSystemState(ctx context.Context, server *state.Server, logger *util.Logg
 
 	// Network stats
 	system.NetworkStats = make(state.NetworkStatsMap)
-	receivedBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/network/received_bytes_count"))
-	sentBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/network/sent_bytes_count"))
+	receivedBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/network/received_bytes_count", logger))
+	sentBytes := uint64(getIntMetric(ctx, client, cloneRequest(baseReq), "cloudsql.googleapis.com/database/network/sent_bytes_count", logger))
 
 	system.NetworkStats["default"] = state.NetworkStats{
 		DiffedOnInput: true,
@@ -135,17 +134,17 @@ func cloneRequest(req *monitoringpb.ListTimeSeriesRequest) *monitoringpb.ListTim
 	}
 }
 
-func getPercentMetric(ctx context.Context, client *monitoring.MetricClient, req *monitoringpb.ListTimeSeriesRequest, metricType string) float64 {
+func getPercentMetric(ctx context.Context, client *monitoring.MetricClient, req *monitoringpb.ListTimeSeriesRequest, metricType string, logger *util.Logger) float64 {
 	req.Filter = fmt.Sprintf("%s AND metric.type = %q", req.Filter, metricType)
 
 	it := client.ListTimeSeries(ctx, req)
 	ts, err := it.Next()
 	if err == iterator.Done {
-		log.Printf("No percentage metrics found for type %s", metricType)
+		logger.PrintError("No percentage metrics found for type %s", metricType)
 		return 0
 	}
 	if err != nil {
-		log.Printf("Error fetching percentage metrics for type %s: %v", metricType, err)
+		logger.PrintError("Error fetching percentage metrics for type %s: %v", metricType, err)
 		return 0
 	}
 
@@ -154,21 +153,21 @@ func getPercentMetric(ctx context.Context, client *monitoring.MetricClient, req 
 		return value
 	}
 
-	log.Printf("No points found in percentage metrics for type %s", metricType)
+	logger.PrintError("No points found in percentage metrics for type %s", metricType)
 	return 0
 }
 
-func getIntMetric(ctx context.Context, client *monitoring.MetricClient, req *monitoringpb.ListTimeSeriesRequest, metricType string) int64 {
+func getIntMetric(ctx context.Context, client *monitoring.MetricClient, req *monitoringpb.ListTimeSeriesRequest, metricType string, logger *util.Logger) int64 {
 	req.Filter = fmt.Sprintf("%s AND metric.type = %q", req.Filter, metricType)
 
 	it := client.ListTimeSeries(ctx, req)
 	ts, err := it.Next()
 	if err == iterator.Done {
-		log.Printf("No integer metrics found for type %s", metricType)
+		logger.PrintError("No integer metrics found for type %s", metricType)
 		return 0
 	}
 	if err != nil {
-		log.Printf("Error fetching integer metrics for type %s: %v", metricType, err)
+		logger.PrintError("Error fetching integer metrics for type %s: %v", metricType, err)
 		return 0
 	}
 
@@ -177,6 +176,6 @@ func getIntMetric(ctx context.Context, client *monitoring.MetricClient, req *mon
 		return value
 	}
 
-	log.Printf("No points found in integer metrics for type %s", metricType)
+	logger.PrintError("No points found in integer metrics for type %s", metricType)
 	return 0
 }
